@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowRight, Wallet, TrendingUp, Bell, Sparkles } from 'lucide-react';
+import { ArrowRight, Wallet, TrendingUp, Bell, Sparkles, CheckCircle, Mail } from 'lucide-react';
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -9,6 +9,8 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
+  const [signUpEmail, setSignUpEmail] = useState('');
   const { signIn, signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,9 +24,40 @@ export default function Auth() {
 
     if (error) {
       setError(error.message);
+    } else if (isSignUp) {
+      setSignUpSuccess(true);
+      setSignUpEmail(email);
+      setTimeout(() => {
+        setIsSignUp(false);
+        setSignUpSuccess(false);
+        setEmail('');
+        setPassword('');
+        setFullName('');
+      }, 3000);
     }
     setLoading(false);
   };
+
+  if (signUpSuccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-md text-center">
+          <div className="mb-6 animate-bounce">
+            <CheckCircle className="w-20 h-20 text-emerald-500 mx-auto" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Account Created!</h2>
+          <div className="bg-white rounded-3xl shadow-xl p-8 mb-6">
+            <div className="flex items-center justify-center mb-4 bg-emerald-50 rounded-2xl p-4">
+              <Mail className="w-5 h-5 text-emerald-600 mr-3" />
+              <span className="text-emerald-900 font-semibold text-sm break-all">{signUpEmail}</span>
+            </div>
+            <p className="text-gray-600 mb-4">A confirmation email has been sent to your email address. Please check your inbox and follow the instructions to verify your account.</p>
+            <p className="text-sm text-gray-500">Redirecting to sign in...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex flex-col">

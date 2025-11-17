@@ -1,23 +1,22 @@
 import { useState, useEffect } from 'react';
 import {
-  Home, Upload, Wallet, TrendingUp, Settings,
+  Home, Zap, TrendingUp, Settings,
   ArrowUpRight, ArrowDownLeft, DollarSign, PiggyBank,
-  Calendar, Coins, Users
+  Calendar, Coins, Users, Wallet
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 import BankManagement from '../components/BankManagement';
-import TransactionUpload from '../components/TransactionUpload';
+import TransactionModule from '../components/TransactionModule';
 import TransactionList from '../components/TransactionList';
 import FinancialSummary from '../components/FinancialSummary';
 import Reminders from '../components/Reminders';
 import SettingsPage from '../components/SettingsPage';
 import DailySummary from '../components/DailySummary';
-import CashTransactions from '../components/CashTransactions';
 import SharedTransactions from '../components/SharedTransactions';
 
-type TabType = 'home' | 'upload' | 'banks' | 'reports' | 'reminders' | 'settings' | 'daily' | 'cash' | 'shared';
+type TabType = 'home' | 'transactions' | 'reports' | 'settings' | 'daily' | 'shared' | 'reminders' | 'banks';
 
 interface DashboardStats {
   totalBalance: number;
@@ -95,7 +94,7 @@ export default function Dashboard() {
     switch (activeTab) {
       case 'home':
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 p-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-5 text-white shadow-lg">
                 <div className="flex items-center justify-between mb-3">
@@ -143,26 +142,18 @@ export default function Dashboard() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => setActiveTab('upload')}
+                  onClick={() => setActiveTab('transactions')}
                   className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-2xl p-4 hover:from-emerald-100 hover:to-teal-100 transition-all duration-200 group"
                 >
-                  <Upload className="w-6 h-6 text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
-                  <div className="text-sm font-medium text-gray-900">Upload Statement</div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('cash')}
-                  className="bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-200 rounded-2xl p-4 hover:from-cyan-100 hover:to-blue-100 transition-all duration-200 group"
-                >
-                  <Coins className="w-6 h-6 text-cyan-600 mb-2 group-hover:scale-110 transition-transform" />
-                  <div className="text-sm font-medium text-gray-900">Cash Transaction</div>
+                  <Zap className="w-6 h-6 text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
+                  <div className="text-sm font-medium text-gray-900">Transactions</div>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('daily')}
-                  className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-4 hover:from-purple-100 hover:to-pink-100 transition-all duration-200 group"
+                  className="bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-200 rounded-2xl p-4 hover:from-cyan-100 hover:to-blue-100 transition-all duration-200 group"
                 >
-                  <Calendar className="w-6 h-6 text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
+                  <Calendar className="w-6 h-6 text-cyan-600 mb-2 group-hover:scale-110 transition-transform" />
                   <div className="text-sm font-medium text-gray-900">Daily Summary</div>
                 </button>
 
@@ -171,10 +162,23 @@ export default function Dashboard() {
                   className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-4 hover:from-orange-100 hover:to-yellow-100 transition-all duration-200 group relative"
                 >
                   <Users className="w-6 h-6 text-orange-600 mb-2 group-hover:scale-110 transition-transform" />
-                  <div className="text-sm font-medium text-gray-900">Split Transaction</div>
+                  <div className="text-sm font-medium text-gray-900">Split</div>
                   {stats.pendingSharedTransactions > 0 && (
                     <div className="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
                       {stats.pendingSharedTransactions}
+                    </div>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('reminders')}
+                  className="bg-gradient-to-br from-pink-50 to-rose-50 border-2 border-pink-200 rounded-2xl p-4 hover:from-pink-100 hover:to-rose-100 transition-all duration-200 group relative"
+                >
+                  <PiggyBank className="w-6 h-6 text-pink-600 mb-2 group-hover:scale-110 transition-transform" />
+                  <div className="text-sm font-medium text-gray-900">Reminders</div>
+                  {stats.pendingReminders > 0 && (
+                    <div className="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                      {stats.pendingReminders}
                     </div>
                   )}
                 </button>
@@ -184,10 +188,8 @@ export default function Dashboard() {
             <TransactionList limit={5} />
           </div>
         );
-      case 'upload':
-        return <TransactionUpload onComplete={loadStats} />;
-      case 'banks':
-        return <BankManagement />;
+      case 'transactions':
+        return <TransactionModule onComplete={loadStats} />;
       case 'reports':
         return <FinancialSummary />;
       case 'reminders':
@@ -196,10 +198,10 @@ export default function Dashboard() {
         return <SettingsPage />;
       case 'daily':
         return <DailySummary />;
-      case 'cash':
-        return <CashTransactions />;
       case 'shared':
         return <SharedTransactions />;
+      case 'banks':
+        return <BankManagement />;
       default:
         return null;
     }
@@ -226,7 +228,7 @@ export default function Dashboard() {
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-3 shadow-2xl">
-        <div className="max-w-md mx-auto grid grid-cols-5 gap-1">
+        <div className="max-w-md mx-auto grid grid-cols-4 gap-1">
           <button
             onClick={() => setActiveTab('home')}
             className={`flex flex-col items-center justify-center py-2 rounded-2xl transition-all duration-200 ${
@@ -240,27 +242,15 @@ export default function Dashboard() {
           </button>
 
           <button
-            onClick={() => setActiveTab('upload')}
+            onClick={() => setActiveTab('transactions')}
             className={`flex flex-col items-center justify-center py-2 rounded-2xl transition-all duration-200 ${
-              activeTab === 'upload'
+              activeTab === 'transactions'
                 ? 'bg-emerald-50 text-emerald-600'
                 : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
-            <Upload className={`w-6 h-6 mb-1 ${activeTab === 'upload' ? 'scale-110' : ''} transition-transform`} />
-            <span className="text-xs font-medium">Upload</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('banks')}
-            className={`flex flex-col items-center justify-center py-2 rounded-2xl transition-all duration-200 ${
-              activeTab === 'banks'
-                ? 'bg-emerald-50 text-emerald-600'
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <Wallet className={`w-6 h-6 mb-1 ${activeTab === 'banks' ? 'scale-110' : ''} transition-transform`} />
-            <span className="text-xs font-medium">Banks</span>
+            <Zap className={`w-6 h-6 mb-1 ${activeTab === 'transactions' ? 'scale-110' : ''} transition-transform`} />
+            <span className="text-xs font-medium">Transactions</span>
           </button>
 
           <button
