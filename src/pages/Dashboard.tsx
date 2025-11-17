@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   Home, Zap, TrendingUp, Settings,
   ArrowUpRight, ArrowDownLeft, DollarSign, PiggyBank,
-  Calendar, Coins, Users, Wallet
+  Calendar, Users, Wallet
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
