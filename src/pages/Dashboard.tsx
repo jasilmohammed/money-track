@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
-  Home, Upload, Wallet, TrendingUp, Bell, Settings,
-  Plus, ArrowUpRight, ArrowDownLeft, DollarSign, CreditCard, PiggyBank
+  Home, Upload, Wallet, TrendingUp, Settings,
+  ArrowUpRight, ArrowDownLeft, DollarSign, PiggyBank,
+  Calendar, Coins, Users
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,14 +13,18 @@ import TransactionList from '../components/TransactionList';
 import FinancialSummary from '../components/FinancialSummary';
 import Reminders from '../components/Reminders';
 import SettingsPage from '../components/SettingsPage';
+import DailySummary from '../components/DailySummary';
+import CashTransactions from '../components/CashTransactions';
+import SharedTransactions from '../components/SharedTransactions';
 
-type TabType = 'home' | 'upload' | 'banks' | 'reports' | 'reminders' | 'settings';
+type TabType = 'home' | 'upload' | 'banks' | 'reports' | 'reminders' | 'settings' | 'daily' | 'cash' | 'shared';
 
 interface DashboardStats {
   totalBalance: number;
   monthlyIncome: number;
   monthlyExpenses: number;
   pendingReminders: number;
+  pendingSharedTransactions: number;
 }
 
 export default function Dashboard() {
@@ -29,6 +34,7 @@ export default function Dashboard() {
     monthlyIncome: 0,
     monthlyExpenses: 0,
     pendingReminders: 0,
+    pendingSharedTransactions: 0,
   });
   const { user } = useAuth();
 
@@ -70,11 +76,18 @@ export default function Dashboard() {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending');
 
+    const { count: pendingShared } = await supabase
+      .from('shared_transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('shared_with_user_id', user!.id)
+      .eq('status', 'pending');
+
     setStats({
       totalBalance,
       monthlyIncome,
       monthlyExpenses,
       pendingReminders: pendingReminders || 0,
+      pendingSharedTransactions: pendingShared || 0,
     });
   };
 
@@ -138,11 +151,32 @@ export default function Dashboard() {
                 </button>
 
                 <button
-                  onClick={() => setActiveTab('banks')}
+                  onClick={() => setActiveTab('cash')}
                   className="bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-200 rounded-2xl p-4 hover:from-cyan-100 hover:to-blue-100 transition-all duration-200 group"
                 >
-                  <CreditCard className="w-6 h-6 text-cyan-600 mb-2 group-hover:scale-110 transition-transform" />
-                  <div className="text-sm font-medium text-gray-900">Manage Banks</div>
+                  <Coins className="w-6 h-6 text-cyan-600 mb-2 group-hover:scale-110 transition-transform" />
+                  <div className="text-sm font-medium text-gray-900">Cash Transaction</div>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('daily')}
+                  className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-4 hover:from-purple-100 hover:to-pink-100 transition-all duration-200 group"
+                >
+                  <Calendar className="w-6 h-6 text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
+                  <div className="text-sm font-medium text-gray-900">Daily Summary</div>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('shared')}
+                  className="bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-2xl p-4 hover:from-orange-100 hover:to-yellow-100 transition-all duration-200 group relative"
+                >
+                  <Users className="w-6 h-6 text-orange-600 mb-2 group-hover:scale-110 transition-transform" />
+                  <div className="text-sm font-medium text-gray-900">Split Transaction</div>
+                  {stats.pendingSharedTransactions > 0 && (
+                    <div className="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                      {stats.pendingSharedTransactions}
+                    </div>
+                  )}
                 </button>
               </div>
             </div>
@@ -160,6 +194,12 @@ export default function Dashboard() {
         return <Reminders />;
       case 'settings':
         return <SettingsPage />;
+      case 'daily':
+        return <DailySummary />;
+      case 'cash':
+        return <CashTransactions />;
+      case 'shared':
+        return <SharedTransactions />;
       default:
         return null;
     }

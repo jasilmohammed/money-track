@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Sparkles, Loader } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, Sparkles, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { generateFinancialInsights } from '../services/geminiService';

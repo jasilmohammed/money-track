@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownLeft, Check, X, Edit, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Check, X, ChevronRight, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import SplitTransaction from './SplitTransaction';
 
 interface Transaction {
   id: string;
@@ -27,7 +28,8 @@ interface TransactionListProps {
 export default function TransactionList({ limit }: TransactionListProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed'>('all');
-  const { user } = useAuth();
+  const [splitTransaction, setSplitTransaction] = useState<Transaction | null>(null);
+  useAuth();
 
   useEffect(() => {
     loadTransactions();
@@ -202,6 +204,17 @@ export default function TransactionList({ limit }: TransactionListProps) {
                 </button>
               </div>
             )}
+            {txn.is_confirmed && (
+              <div className="flex space-x-2 mt-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => setSplitTransaction(txn)}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-yellow-500 text-white py-2 rounded-xl text-sm font-medium hover:from-orange-600 hover:to-yellow-600 transition-all flex items-center justify-center space-x-1"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Split</span>
+                </button>
+              </div>
+            )}
           </div>
         ))}
 
@@ -214,6 +227,17 @@ export default function TransactionList({ limit }: TransactionListProps) {
           </div>
         )}
       </div>
+
+      {splitTransaction && (
+        <SplitTransaction
+          transaction={splitTransaction}
+          onComplete={() => {
+            setSplitTransaction(null);
+            alert('Transaction split successfully! Waiting for confirmation from other users.');
+          }}
+          onCancel={() => setSplitTransaction(null)}
+        />
+      )}
     </div>
   );
 }

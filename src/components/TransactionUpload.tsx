@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader, Sparkles } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Loader, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { extractTransactionsWithAI, suggestLedgerAndNarration } from '../services/geminiService';
+import { extractTransactionsWithAI } from '../services/geminiService';
+import TransactionReview from './TransactionReview';
 
 interface Bank {
   id: string;
@@ -27,10 +28,9 @@ export default function TransactionUpload({ onComplete }: TransactionUploadProps
   const [banks, setBanks] = useState<Bank[]>([]);
   const [selectedBank, setSelectedBank] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [extractedText, setExtractedText] = useState('');
   const [transactions, setTransactions] = useState<ExtractedTransaction[]>([]);
   const [processing, setProcessing] = useState(false);
-  const [step, setStep] = useState<'upload' | 'extract' | 'review'>('upload');
+  const [step, setStep] = useState<'upload' | 'extract' | 'review' | 'reviewing'>('upload');
   const [error, setError] = useState('');
   const { user } = useAuth();
 
@@ -89,7 +89,6 @@ export default function TransactionUpload({ onComplete }: TransactionUploadProps
         return;
       }
 
-      setExtractedText(content);
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -105,7 +104,7 @@ export default function TransactionUpload({ onComplete }: TransactionUploadProps
 
       const extracted = await extractTransactionsWithAI(content, profile.gemini_api_key);
       setTransactions(extracted);
-      setStep('review');
+      setStep('reviewing');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to extract transactions');
     } finally {
@@ -113,85 +112,6 @@ export default function TransactionUpload({ onComplete }: TransactionUploadProps
     }
   };
 
-  const handleImport = async () => {
-    setProcessing(true);
-    try {
-      for (const txn of transactions) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('gemini_api_key')
-          .eq('id', user!.id)
-          .single();
-
-        const suggestion = profile?.gemini_api_key
-          ? await suggestLedgerAndNarration(txn.description, profile.gemini_api_key, user!.id)
-          : null;
-
-        let ledgerId = suggestion?.ledgerId;
-
-        if (!ledgerId && suggestion?.suggestedLedgerName) {
-          const { data: newLedger } = await supabase
-            .from('ledgers')
-            .insert({
-              user_id: user!.id,
-              ledger_name: suggestion.suggestedLedgerName,
-              ledger_type: txn.type === 'DEBIT' ? 'Expense' : 'Income',
-              current_balance: 0,
-            })
-            .select()
-            .single();
-
-          ledgerId = newLedger?.id;
-        }
-
-        await supabase.from('transactions').insert({
-          user_id: user!.id,
-          bank_id: selectedBank,
-          transaction_date: txn.date,
-          transaction_type: txn.type,
-          amount: txn.amount,
-          particulars: txn.description,
-          narration: suggestion?.narration || txn.description,
-          ledger_id: ledgerId,
-          balance_after: txn.balance,
-          reference_number: txn.reference,
-          is_confirmed: false,
-          ai_suggested: true,
-          created_by: 'upload',
-        });
-
-        if (ledgerId) {
-          await supabase.rpc('update_ledger_balance', {
-            ledger_id: ledgerId,
-            amount: txn.type === 'DEBIT' ? -txn.amount : txn.amount,
-          });
-        }
-      }
-
-      await supabase.from('banks').update({
-        current_balance: transactions[transactions.length - 1]?.balance || 0,
-      }).eq('id', selectedBank);
-
-      await supabase.from('uploaded_files').insert({
-        user_id: user!.id,
-        bank_id: selectedBank,
-        file_name: file!.name,
-        file_type: file!.type,
-        processed: true,
-        transactions_count: transactions.length,
-      });
-
-      onComplete();
-      setStep('upload');
-      setFile(null);
-      setSelectedBank('');
-      setTransactions([]);
-    } catch (err) {
-      setError('Failed to import transactions');
-    } finally {
-      setProcessing(false);
-    }
-  };
 
   return (
     <div className="p-5 space-y-4">
@@ -286,77 +206,22 @@ export default function TransactionUpload({ onComplete }: TransactionUploadProps
         </>
       )}
 
-      {step === 'review' && (
-        <>
-          <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 flex items-center space-x-3 mb-4">
-            <CheckCircle className="w-6 h-6 text-emerald-600" />
-            <div>
-              <div className="font-semibold text-emerald-900">
-                {transactions.length} transactions extracted
-              </div>
-              <div className="text-sm text-emerald-700">Review and import</div>
-            </div>
-          </div>
-
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {transactions.map((txn, idx) => (
-              <div
-                key={idx}
-                className="bg-white rounded-2xl p-4 shadow-md border border-gray-100"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-500 mb-1">{txn.date}</div>
-                    <div className="font-medium text-gray-900 text-sm">
-                      {txn.description}
-                    </div>
-                  </div>
-                  <div className={`text-right ml-3 ${
-                    txn.type === 'CREDIT' ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    <div className="font-bold">
-                      {txn.type === 'CREDIT' ? '+' : '-'}₹{txn.amount.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-                {txn.balance && (
-                  <div className="text-xs text-gray-500">
-                    Balance: ₹{txn.balance.toFixed(2)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="flex space-x-2">
-            <button
-              onClick={() => {
-                setStep('upload');
-                setTransactions([]);
-              }}
-              className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-300 transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleImport}
-              disabled={processing}
-              className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 transition-all flex items-center justify-center space-x-2"
-            >
-              {processing ? (
-                <>
-                  <Loader className="w-5 h-5 animate-spin" />
-                  <span>Importing...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  <span>Import All</span>
-                </>
-              )}
-            </button>
-          </div>
-        </>
+      {step === 'reviewing' && (
+        <TransactionReview
+          transactions={transactions}
+          bankId={selectedBank}
+          onComplete={() => {
+            onComplete();
+            setStep('upload');
+            setFile(null);
+            setSelectedBank('');
+            setTransactions([]);
+          }}
+          onCancel={() => {
+            setStep('upload');
+            setTransactions([]);
+          }}
+        />
       )}
     </div>
   );
