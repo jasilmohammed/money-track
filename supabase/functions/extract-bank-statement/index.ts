@@ -32,19 +32,36 @@ serve(async (req: Request) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing Authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': supabaseServiceRoleKey,
+      }
+    });
+
+    if (!userResponse.ok) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const userData = await userResponse.json();
+    const userId = userData.id;
+
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
@@ -163,7 +180,7 @@ Rules:
     const { data: previousTransactions } = await supabaseClient
       .from('transactions')
       .select('particulars, narration, ledger_id, ledgers(ledger_name)')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100);
 

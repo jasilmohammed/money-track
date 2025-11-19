@@ -106,6 +106,14 @@ export default function EnhancedTransactionUpload({ onComplete }: { onComplete?:
         return;
       }
 
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        setError('Please sign in to upload statements');
+        setExtracting(false);
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('geminiApiKey', profile.gemini_api_key);
@@ -115,7 +123,8 @@ export default function EnhancedTransactionUpload({ onComplete }: { onComplete?:
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${session.access_token}`,
+            'X-Client-Info': 'supabase-js/2.39.0',
           },
           body: formData,
         }
